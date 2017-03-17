@@ -9,16 +9,13 @@
 #include "platform.hpp"
 #include "obs-app.hpp"
 
-OBSProjector::OBSProjector(QWidget *widget, obs_source_t *source_)
-	: OBSQTDisplay                 (widget,
-	                                Qt::Window | Qt::FramelessWindowHint |
-					Qt::X11BypassWindowManagerHint),
+OBSProjector::OBSProjector(QWidget *widget, obs_source_t *source_,Qt::WindowFlags f)
+    : OBSQTDisplay                 (widget,f),
 	  source                       (source_),
 	  removedSignal                (obs_source_get_signal_handler(source),
 	                                "remove", OBSSourceRemoved, this)
 {
 	setAttribute(Qt::WA_DeleteOnClose, true);
-
 	//disable application quit when last window closed
 	setAttribute(Qt::WA_QuitOnClose, false);
 
@@ -54,14 +51,16 @@ void OBSProjector::Init(int monitor)
 {
 	QScreen *screen = QGuiApplication::screens()[monitor];
 
-	setGeometry(screen->geometry());
-
-	bool alwaysOnTop = config_get_bool(GetGlobalConfig(),
+//	setGeometry(screen->geometry());
+//    setGeometry(screen->geometry().x(),0,screen->geometry().width()/2,screen->geometry().height()/2);
+//    geometry().setWidth(screen->geometry().width()/2);
+//    geometry().setHeight(screen->geometry().width()/2);
+    bool alwaysOnTop = config_get_bool(GetGlobalConfig(),
 			"BasicWindow", "ProjectorAlwaysOnTop");
 	if (alwaysOnTop)
-		SetAlwaysOnTop(this, true);
+        SetAlwaysOnTop(this, true);
 
-	show();
+    show();
 
 	if (source)
 		obs_source_inc_showing(source);
@@ -127,11 +126,11 @@ void OBSProjector::mousePressEvent(QMouseEvent *event)
 {
 	OBSQTDisplay::mousePressEvent(event);
 
-	if (event->button() == Qt::RightButton) {
-		QMenu popup(this);
-		popup.addAction(QTStr("Close"), this, SLOT(EscapeTriggered()));
-		popup.exec(QCursor::pos());
-	}
+    if (event->button() == Qt::RightButton) {
+        QMenu popup(this);
+        popup.addAction(QTStr("Close"), this, SLOT(EscapeTriggered()));
+        popup.exec(QCursor::pos());
+    }
 }
 
 void OBSProjector::EscapeTriggered()

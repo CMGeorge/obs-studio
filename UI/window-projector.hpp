@@ -24,7 +24,8 @@ private slots:
 	void EscapeTriggered();
 
 public:
-	OBSProjector(QWidget *parent, obs_source_t *source);
+    OBSProjector(QWidget *parent, obs_source_t *source,Qt::WindowFlags f = Qt::Window | Qt::FramelessWindowHint |
+            Qt::X11BypassWindowManagerHint);
 	~OBSProjector();
 
 	void Init(int monitor);

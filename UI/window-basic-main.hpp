@@ -229,7 +229,7 @@ private:
 	void ClearSceneData();
 
 	void Nudge(int dist, MoveDir dir);
-	void OpenProjector(obs_source_t *source, int monitor);
+    void OpenProjector(obs_source_t *source, int monitor,bool detached=false);
 
 	void GetAudioSourceFilters();
 	void GetAudioSourceProperties();
@@ -624,6 +624,7 @@ private slots:
 	void OpenPreviewProjector();
 	void OpenSourceProjector();
 	void OpenSceneProjector();
+    void openSceneInNewWindow();
 
 public slots:
 	void on_actionResetTransform_triggered();

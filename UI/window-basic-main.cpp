@@ -4994,7 +4994,7 @@ void OBSBasic::UpdateTitleBar()
     const char *sceneCollection = config_get_string(App()->GlobalConfig(),
                                                     "Basic", "SceneCollection");
 
-    name << "Juvens Online ";
+    name << "Juvenes Online ";
     if (previewProgramMode)
         name << " - Live Studio ";
 

@@ -506,6 +506,8 @@ void obs_source_destroy(struct obs_source *source)
 		source->context.data = NULL;
 	}
 
+	audio_monitor_destroy(source->monitor);
+
 	obs_hotkey_unregister(source->push_to_talk_key);
 	obs_hotkey_unregister(source->push_to_mute_key);
 	obs_hotkey_pair_unregister(source->mute_unmute_key);
@@ -1887,10 +1889,9 @@ void obs_source_filter_add(obs_source_t *source, obs_source_t *filter)
 
 	signal_handler_signal(source->context.signals, "filter_add", &cd);
 
-	if (source && filter)
-		blog(LOG_DEBUG, "- filter '%s' (%s) added to source '%s'",
-				filter->context.name, filter->info.id,
-				source->context.name);
+	blog(LOG_DEBUG, "- filter '%s' (%s) added to source '%s'",
+			filter->context.name, filter->info.id,
+			source->context.name);
 }
 
 static bool obs_source_filter_remove_refless(obs_source_t *source,
@@ -1923,10 +1924,9 @@ static bool obs_source_filter_remove_refless(obs_source_t *source,
 
 	signal_handler_signal(source->context.signals, "filter_remove", &cd);
 
-	if (source && filter)
-		blog(LOG_DEBUG, "- filter '%s' (%s) removed from source '%s'",
-				filter->context.name, filter->info.id,
-				source->context.name);
+	blog(LOG_DEBUG, "- filter '%s' (%s) removed from source '%s'",
+			filter->context.name, filter->info.id,
+			source->context.name);
 
 	if (filter->info.filter_remove)
 		filter->info.filter_remove(filter->context.data,
@@ -2521,6 +2521,7 @@ static bool ready_async_frame(obs_source_t *source, uint64_t sys_time)
 			next_frame = source->async_frames.array[0];
 		}
 
+		source->last_frame_ts = next_frame->timestamp;
 		return true;
 	}
 

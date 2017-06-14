@@ -15,6 +15,8 @@ add_subdirectory(obs-frontend-api)
 
 project(obs)
 
+set(ENABLE_WIN_UPDATER FALSE CACHE BOOL "Enable the windows updater")
+
 if(DEFINED QTDIR${_lib_suffix})
 	list(APPEND CMAKE_PREFIX_PATH "${QTDIR${_lib_suffix}}")
 elseif(DEFINED QTDIR)
@@ -53,9 +55,27 @@ include_directories(${LIBCURL_INCLUDE_DIRS})
 add_definitions(${LIBCURL_DEFINITIONS})
 
 if(WIN32)
+	include_directories(${OBS_JANSSON_INCLUDE_DIRS})
+	include_directories(${BLAKE2_INCLUDE_DIR})
+
 	set(obs_PLATFORM_SOURCES
 		platform-windows.cpp
+		win-update/update-window.cpp
+		win-update/win-update.cpp
+		win-update/win-update-helpers.cpp
 		obs.rc)
+	set(obs_PLATFORM_HEADERS
+		win-update/update-window.hpp
+		win-update/win-update.hpp
+		win-update/win-update-helpers.hpp)
+	set(obs_PLATFORM_LIBRARIES
+		crypt32
+		blake2
+		${OBS_JANSSON_IMPORT})
+
+	if(ENABLE_WIN_UPDATER)
+		add_definitions(-DENABLE_WIN_UPDATER)
+	endif()
 elseif(APPLE)
 	set(obs_PLATFORM_SOURCES
 		platform-osx.mm)
@@ -133,6 +153,7 @@ set(obs_SOURCES
 	qt-wrappers.cpp)
 
 set(obs_HEADERS
+	${obs_PLATFORM_HEADERS}
 	obs-app.hpp
 	platform.hpp
 	window-main.hpp
@@ -185,6 +206,7 @@ set(obs_UI
 	forms/OBSBasicSettings.ui
 	forms/OBSBasicSourceSelect.ui
 	forms/OBSBasicInteraction.ui
+	forms/OBSUpdate.ui
 	forms/OBSRemux.ui)
 
 set(obs_QRC
@@ -231,3 +253,6 @@ if (UNIX AND UNIX_STRUCTURE AND NOT APPLE)
 endif()
 
 add_subdirectory(frontend-plugins)
+if(WIN32)
+	add_subdirectory(win-update/updater)
+endif()

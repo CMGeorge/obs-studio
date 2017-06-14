@@ -30,6 +30,8 @@ struct audio_monitor {
 	IAudioRenderClient *render;
 
 	uint64_t           last_recv_time;
+	uint64_t           prev_video_ts;
+	uint64_t           time_since_prev;
 	audio_resampler_t  *resampler;
 	uint32_t           sample_rate;
 	uint32_t           channels;
@@ -42,6 +44,8 @@ struct audio_monitor {
 	DARRAY(float)      buf;
 	pthread_mutex_t    playback_mutex;
 };
+
+/* #define DEBUG_AUDIO */
 
 static bool process_audio_delay(struct audio_monitor *monitor,
 		float **data, uint32_t *frames, uint64_t ts, uint32_t pad)
@@ -59,13 +63,26 @@ static bool process_audio_delay(struct audio_monitor *monitor,
 		circlebuf_free(&monitor->delay_buffer);
 	monitor->last_recv_time = cur_time;
 
+	ts += monitor->source->sync_offset;
+
 	circlebuf_push_back(&monitor->delay_buffer, &ts, sizeof(ts));
 	circlebuf_push_back(&monitor->delay_buffer, frames, sizeof(*frames));
 	circlebuf_push_back(&monitor->delay_buffer, *data,
 			*frames * blocksize);
 
+	if (!monitor->prev_video_ts) {
+		monitor->prev_video_ts = last_frame_ts;
+
+	} else if (monitor->prev_video_ts == last_frame_ts) {
+		monitor->time_since_prev += (uint64_t)*frames *
+			1000000000ULL / (uint64_t)monitor->sample_rate;
+	} else {
+		monitor->time_since_prev = 0;
+	}
+
 	while (monitor->delay_buffer.size != 0) {
 		size_t size;
+		bool bad_diff;
 
 		circlebuf_peek_front(&monitor->delay_buffer, &cur_ts,
 				sizeof(ts));
@@ -73,9 +90,19 @@ static bool process_audio_delay(struct audio_monitor *monitor,
 			((uint64_t)pad * 1000000000ULL /
 			 (uint64_t)monitor->sample_rate);
 		diff = (int64_t)front_ts - (int64_t)last_frame_ts;
+		bad_diff = !last_frame_ts ||
+		           llabs(diff) > 5000000000 ||
+		           monitor->time_since_prev > 100000000ULL;
 
 		/* delay audio if rushing */
-		if (diff > 75000000) {
+		if (!bad_diff && diff > 75000000) {
+#ifdef DEBUG_AUDIO
+			blog(LOG_INFO, "audio rushing, cutting audio, "
+					"diff: %lld, delay buffer size: %lu, "
+					"v: %llu: a: %llu",
+					diff, (int)monitor->delay_buffer.size,
+					last_frame_ts, front_ts);
+#endif
 			return false;
 		}
 
@@ -89,7 +116,14 @@ static bool process_audio_delay(struct audio_monitor *monitor,
 				monitor->buf.array, size);
 
 		/* cut audio if dragging */
-		if (diff < -75000000) {
+		if (!bad_diff && diff < -75000000 && monitor->delay_buffer.size > 0) {
+#ifdef DEBUG_AUDIO
+			blog(LOG_INFO, "audio dragging, cutting audio, "
+					"diff: %lld, delay buffer size: %lu, "
+					"v: %llu: a: %llu",
+					diff, (int)monitor->delay_buffer.size,
+					last_frame_ts, front_ts);
+#endif
 			continue;
 		}
 
@@ -280,10 +314,6 @@ static bool audio_monitor_init(struct audio_monitor *monitor)
 	to.format = AUDIO_FORMAT_FLOAT;
 
 	monitor->sample_rate = (uint32_t)wfex->nSamplesPerSec;
-#ifdef ENABLE_CORRECTION
-	monitor->peak_frames = monitor->sample_rate * 75 / 1000;
-	monitor->correction_frames = monitor->sample_rate * 5;
-#endif
 	monitor->channels = wfex->nChannels;
 	monitor->resampler = audio_resampler_create(&to, &from);
 	if (!monitor->resampler) {
